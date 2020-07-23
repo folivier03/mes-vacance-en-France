@@ -1,1 +1,0 @@
-CREATE TABLE IF NOT EXISTS town(insee CHAR(5), name VARCHAR(255), lat DOUBLE, lon DOUBLE);
