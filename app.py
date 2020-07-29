@@ -1,12 +1,19 @@
 """App."""
-from DBConnector import DBConnector
+import data_integration
+from DAL.DBConnector import DBConnector
 
 
 def main():
     """Entry point.
 
+    Clf (INSEE: 63113)
+    Station ID : stop_area:OCE:SA:87734004
+
+    TODO test all gares
     """
-    DBConnector()
+    db = DBConnector()
+    data_integration.stations()
+    data_integration.towns()
 
 
 if __name__ == "__main__":
