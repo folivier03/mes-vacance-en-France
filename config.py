@@ -2,21 +2,20 @@
 from bottle import sys
 import os
 
-## EDIT
-# SNCF API
-TOKEN_AUTH = '920ef78f-4884-4327-b2fa-0015c3377b57'
+# EDIT
+## SNCF API
+TOKEN_AUTH = '0ce55a95-071c-479a-adef-7f7770aecd3f'
 
-## EDIT
-# DB
+## DB
 HOST = 'localhost'
 PORT = 3306
 USER = 'root'
 PWD = '1708'
-DB = 'vacance'
+DB = 'vacation'
 SQLALCHEMY_DATABASE_URI = 'mysql+pymysql://{}:{}@{}/{}?charset=utf8mb4'.format(
     USER, PWD, HOST, DB)
 
-# PATH
+## PATH
 DIRNAME = os.path.dirname(sys.argv[0])+os.sep
 CSV_PATH = DIRNAME+'static'+os.sep+'csv'+os.sep
 IMG_PATH = DIRNAME+'img'+os.sep
