@@ -12,7 +12,7 @@ def main():
     TODO test all gares
     """
     db = DBConnector()
-    # data_integration.stations()
+    data_integration.stations()
     data_integration.towns()
 
 
