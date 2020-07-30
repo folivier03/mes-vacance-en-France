@@ -1,6 +1,7 @@
 """App."""
 import data_integration
 from DAL.DBConnector import DBConnector
+import mysql.connector 
 
 
 def main():
@@ -12,7 +13,7 @@ def main():
     TODO test all gares
     """
     db = DBConnector()
-    # data_integration.stations()
+    data_integration.stations()
     data_integration.towns()
 
 

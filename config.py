@@ -1,5 +1,5 @@
 """Config."""
-from bottle import sys
+import sys
 import os
 
 # EDIT
@@ -7,11 +7,11 @@ import os
 TOKEN_AUTH = '0ce55a95-071c-479a-adef-7f7770aecd3f'
 
 ## DB
-HOST = 'localhost'
+HOST = 'mysql-trajet-db.alwaysdata.net'
 PORT = 3306
-USER = 'root'
-PWD = '1708'
-DB = 'vacation'
+USER = 'trajet-db'
+PWD = 'Maxime080514'
+DB = 'trajet-db_bdd'
 SQLALCHEMY_DATABASE_URI = 'mysql+pymysql://{}:{}@{}/{}?charset=utf8mb4'.format(
     USER, PWD, HOST, DB)
 
