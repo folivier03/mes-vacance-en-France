@@ -1,23 +1,22 @@
 """Config."""
-from bottle import sys
 import os
+import sys
 
 # EDIT
-## SNCF API
+# SNCF API
 TOKEN_AUTH = 'XXXX'
 
-## DB
-HOST = 'localhost'
-PORT = "3306"
-USER = 'root'
-PWD = 'XXXX'
-DB = 'vacation'
+# DB
+HOST = 'mysql-trajet-db.alwaysdata.net'
+PORT = 3306
+USER = 'trajet-db'
+PWD = 'Maxime080514'
+DB = 'trajet-db_bdd'
 SQLALCHEMY_DATABASE_URI = 'mysql+pymysql://{}:{}@{}/{}?charset=utf8mb4'.format(
     USER, PWD, HOST, DB)
 
-## PATH
+# PATH
 DIRNAME = os.path.dirname(sys.argv[0])+os.sep
 CSV_PATH = DIRNAME+'static'+os.sep+'csv'+os.sep
 IMG_PATH = DIRNAME+'img'+os.sep
 DAL_PATH = DIRNAME+'DAL'+os.sep
-
