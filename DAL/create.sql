@@ -1,3 +1,3 @@
 CREATE TABLE IF NOT EXISTS town(insee CHAR(5) PRIMARY KEY, name VARCHAR(255), pref BOOL DEFAULT FALSE);
-CREATE TABLE IF NOT EXISTS station(id CHAR(25) PRIMARY KEY, name VARCHAR(255), insee CHAR(5), lat DOUBLE, lon DOUBLE);
-CREATE TABLE IF NOT EXISTS journey(dep_station_id CHAR(25), arr_station_id CHAR(25))
+CREATE TABLE IF NOT EXISTS station(id CHAR(25) PRIMARY KEY, name VARCHAR(255), insee CHAR(5), lat DOUBLE, lon DOUBLE, id_region VARCHAR(255));
+CREATE TABLE IF NOT EXISTS journey(dep_station_id CHAR(25), arr_station_id CHAR(25), co2 INT, duration INT)

@@ -86,7 +86,7 @@ class DBConnector():
         row = self.cur.fetchone()
 
         if row is not None:
-            return row[0]
+            return row
         else:
             return None
 

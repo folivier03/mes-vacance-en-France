@@ -6,14 +6,15 @@ from DAL.DBConnector import DBConnector
 def main():
     """Entry point.
 
-    Clf (INSEE: 63113)
     Station ID : stop_area:OCE:SA:87734004
 
     TODO test all gares
+
     """
     db = DBConnector()
-    # data_integration.stations()
-    data_integration.towns()
+    #data_integration.stations()
+    #data_integration.towns()
+    data_integration.towns('duration')
 
 
 if __name__ == "__main__":

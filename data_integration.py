@@ -2,9 +2,10 @@
     traitements à la génération des fichiers d'insertion SQL.
 
 """
+from datetime import datetime, timedelta
+import matplotlib.pyplot as plt
 import pandas as pd
 import requests
-
 
 from sqlalchemy import create_engine
 import pymysql
@@ -41,7 +42,7 @@ def stations():
         for station in ensemble_stations['stop_areas']:
 
             station['lat'] = station['coord']['lat']
-            station["lon"] = station['coord']['lon']
+            station['lon'] = station['coord']['lon']
 
             if 'administrative_regions' in station.keys():
                 for var_api, var_df in zip(
@@ -80,7 +81,6 @@ def stations():
     del df_stations['timezone']
     del df_stations['region']
     del df_stations['label_region']
-    del df_stations['id_region']
     del df_stations['zip_code']
 
     # Sanitize
@@ -112,7 +112,7 @@ def page_stations(numero_page):
         auth=(config.TOKEN_AUTH, ''))
 
 
-def towns():
+def towns(mode='co2'):
     """Insert towns in DB.
 
     Raises:
@@ -150,78 +150,132 @@ def towns():
     df_no_station = pd.DataFrame(columns=['insee'])
     db = DBConnector.getInstance()
 
-    # Clf
-    dep = 'stop_area:OCE:SA:87734004'
-    datetime = 0
-
+    # Lyon
+    dep_id_region = 'admin:fr:69123'
     dep_insee = db.build_select_query(
-                    'insee', 'station', 'id', f"'{dep}'")
-
+                    'insee', 'station', 'id_region', f"'{dep_id_region}'")[0]
+    # Remove departure from prefectures to iter
     df_prefs = df_prefs[df_prefs.cheflieu != dep_insee]
     df_towns.loc[df_towns.insee == dep_insee, 'pref'] = True
 
-    df_journeys = pd.DataFrame(columns=['dep_station_id', 'arr_station_id', 'co2'])
+    df_journeys = pd.DataFrame(columns=[
+        'dep_station_id', 'arr_station_id', 'co2', 'lat', 'lon', 'duration'])
+
+    df_no_journeys = pd.DataFrame(columns=[
+        'station_id'])
+
+    date = 0
+    df = pd.DataFrame(columns=['dep', 'arr', 'co2', 'duration'])
     while not df_prefs.empty:
-        df_co2 = pd.DataFrame(columns=['dep', 'arr', 'co2'])
-        count = 0
         for pref in df_prefs.itertuples():
             # Only on first loop
-            if datetime == 0:
+            if date == 0:
                 df_towns.loc[df_towns.insee == pref.cheflieu, 'pref'] = True
 
             arr = db.build_select_query(
-                'id', 'station', 'insee', pref.cheflieu)
+                'id_region', 'station', 'insee', pref.cheflieu)
             if arr is not None:
+                arr = arr[0]
                 journey = find_journey_info(
-                    dep, arr, datetime)
+                    dep_id_region, arr, date)
                 if journey is not None:
-                    count = 0
-                    df_co2 = df_co2.append({
-                        'dep': dep,
+                    df = df.append({
+                        'dep': dep_id_region,
                         'arr': arr,
-                        'co2': journey['co2_emission']['value']
+                        'co2': journey['co2_emission']['value'],
+                        'duration': journey['duration']
                     }, ignore_index=True)
-                    datetime = journey['arrival_date_time']
+                    date = journey['arrival_date_time']
             else:
                 df_no_station = df_no_station.append({
                     'insee': pref.cheflieu
                 }, ignore_index=True)
 
-        #if not df_co2.empty:
-        # Get minimum value of a single column 'co2'
-        min = df_co2[df_co2.co2 == df_co2.co2.min()]
+        if not df[df['dep'].astype(str).str.contains(dep_id_region)].empty:
+            if mode == 'co2':
+                # Get minimum value of a single column 'co2'
+                min = df[(df.dep == dep_id_region) & (
+                    df.co2 == df.co2.min())]
+                if min.empty:
+                    min = df[df.dep == dep_id_region]
+                    min_co2 = min.iloc[0]['co2']
+                else:
+                    min_co2 = min.iloc[0]['co2']
+                min = min.iloc[0]['arr']
+                print('Date: ', date)
 
-        print('Arr : ', arr)
-        print('Count : ', count)
-        print('Taille df co2 : ', df_co2.shape)
+                min_station = db.build_select_query(
+                            'insee, lat, lon', 'station', 'id_region', f"'{min}'")
+                df_prefs = df_prefs[df_prefs.cheflieu != min_station[0]]
 
-        min = min.iloc[0]['arr']
+                df_journeys = df_journeys.append({
+                                'dep_station_id': dep_id_region,
+                                'arr_station_id': min,
+                                'co2': min_co2,
+                                'lat': min_station[1],
+                                'lon': min_station[2]
+                            }, ignore_index=True)
+            else:
+                # Get minimum value of a single column 'duration'
+                min = df[(df.dep == dep_id_region) & (
+                    df.duration == df.duration.min())]
+                if min.empty:
+                    min = df[df.dep == dep_id_region]
+                    min_duration = min.iloc[0]['duration']
+                else:
+                    min_duration = min.iloc[0]['duration']
+                min = min.iloc[0]['arr']
+                print('Date: ', date)
 
-        min_insee = db.build_select_query(
-                    'insee', 'station', 'id', f"'{min}'")
+                min_station = db.build_select_query(
+                            'insee, lat, lon', 'station', 'id_region', f"'{min}'")
+                df_prefs = df_prefs[df_prefs.cheflieu != min_station[0]]
 
-        df_prefs = df_prefs[df_prefs.cheflieu != min_insee]
+                df_journeys = df_journeys.append({
+                                'dep_station_id': dep_id_region,
+                                'arr_station_id': min,
+                                'duration': min_duration,
+                                'lat': min_station[1],
+                                'lon': min_station[2]
+                            }, ignore_index=True)
 
-        print('min ', min)
-        db.build_insert_query(
-            'journey', '`dep_station_id`, `arr_station_id`',
-            f"'{dep}', '{min}'")
+            dep_id_region = min
+        else:
+            date = string_to_datetime(date)
+            # le lendemain à minuit
+            date = datetime.combine(datetime.now() + timedelta(1), datetime.min.time())
+            date = datetime_to_string(date)
+            """df_prefs = df_prefs[df_prefs.cheflieu != db.build_select_query(
+                        'insee', 'station', 'id_region', f"'{dep_id_region}'")]
+            df_no_journeys = df_no_journeys.append({
+                        'station_id': dep_id_region,
+                    }, ignore_index=True)
 
-        """df_journeys = df_journeys.append({
-                    'dep_station_id': dep,
-                    'arr_station_id': arr,
-                    'co2': journey['co2_emission']['value']
-                }, ignore_index=True)"""
-        dep = min
+            last_journey = df_journeys.tail(1)
+            dep_id_region = last_journey.iloc[0]['dep_station_id']
+            # drop last journey
+            df_journeys.drop(last_journey.index, inplace=True)"""
 
+        # TODO: N+1, rapide, SaaS
+        print(f'df_journeys: {df_journeys}')
+        print(f'df_no_journeys: {df_no_journeys}')
 
-    # TODO: N+1, rapide, SaaS
-    print(f'df_co2: {df_co2}')
-    print(f'df_no_station: {df_no_station}')
+    # Plot
+    lng_var = df_journeys['lon'].tolist()
+    lat_var = df_journeys['lat'].tolist()
+    plt.scatter(x=lng_var, y=lat_var, marker='o')
+    plt.plot(lng_var, lat_var)
+    plt.show()
+
+    if mode == 'co2':
+        plt.savefig(config.IMG_PATH+'journeys_co2.png')
+    else:
+        plt.savefig(config.IMG_PATH+'journeys_duration.png')
 
     # Df to SQL
     engine = create_engine(config.SQLALCHEMY_DATABASE_URI, echo=False)
     df_towns.to_sql('town', con=engine, if_exists='append', index=False)
+    df_journeys.to_sql('journey', con=engine, if_exists='append', index=False)
 
 
 def find_journey_info(dep, arr, datetime):
@@ -251,4 +305,14 @@ def find_journey_info(dep, arr, datetime):
     except KeyError as err:
         print('KeyError: ', err)
         print('res: ', res)
-        print(f'{dep} --> {arr}')
+        print(f'{dep} --> {arr} at {datetime}')
+
+
+def string_to_datetime(string):
+    """Convert string date from API into datetime."""
+    return datetime.strptime(string.replace('T', ''), '%Y%m%d%H%M%S')
+
+
+def datetime_to_string(date):
+    """Convert datetime into usable string for API."""
+    return datetime.strftime(date, '%Y%m%dT%H%M%S')
