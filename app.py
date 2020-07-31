@@ -6,10 +6,10 @@ from DAL.DBConnector import DBConnector
 def main():
     """Entry point.
 
-    Station ID : stop_area:OCE:SA:87734004
-
-    TODO test all gares
-
+    data_integration.stations(): lauch only once to insert stations in db
+    data_integration.towns(): launch it to get the w/ minimum CO2 emit
+    data_integration.towns('duration'): launch it to get the w/ minimum
+    duration time
     """
     db = DBConnector()
     #data_integration.stations()

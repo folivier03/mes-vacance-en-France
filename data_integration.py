@@ -1,7 +1,6 @@
-"""Fichier principal qui exécute toutes les requêtes et
-    traitements à la génération des fichiers d'insertion SQL.
-
-"""
+"""Data integration inside db."""
+import cartopy.crs as ccrs
+import cartopy.feature as cfeature
 from datetime import datetime, timedelta
 import matplotlib.pyplot as plt
 import pandas as pd
@@ -109,7 +108,7 @@ def page_stations(numero_page):
     """
     return requests.get(
         (f'https://api.sncf.com/v1/coverage/sncf/stop_areas?start_page={numero_page}'),
-        auth=(config.TOKEN_AUTH, ''))
+        auth=(config.TOKENS_AUTH, ''))
 
 
 def towns(mode='co2'):
@@ -164,20 +163,32 @@ def towns(mode='co2'):
     df_no_journeys = pd.DataFrame(columns=[
         'station_id'])
 
-    date = 0
+    date = '20200726T000000'
+    cpt = 0
     df = pd.DataFrame(columns=['dep', 'arr', 'co2', 'duration'])
+    fig = plt.figure(figsize=(7, 7))
+    ax = fig.add_subplot(1, 1, 1, projection=ccrs.PlateCarree())
+    ax.set_extent([-5, 10, 42, 52])
+    ax.add_feature(cfeature.OCEAN.with_scale('50m'))
+    ax.add_feature(cfeature.RIVERS.with_scale('50m'))
+    ax.add_feature(cfeature.BORDERS.with_scale('50m'), linestyle=':')
+    if mode == 'co2':
+        ax.set_title('France - CO2')
+    else:
+        ax.set_title('France - Duration')
     while not df_prefs.empty:
         for pref in df_prefs.itertuples():
             # Only on first loop
-            if date == 0:
+            if cpt == 0:
                 df_towns.loc[df_towns.insee == pref.cheflieu, 'pref'] = True
+                cpt += 1
 
             arr = db.build_select_query(
                 'id_region', 'station', 'insee', pref.cheflieu)
             if arr is not None:
                 arr = arr[0]
-                journey = find_journey_info(
-                    dep_id_region, arr, date)
+                journey = find_journey_info(dep_id_region, arr, date)
+
                 if journey is not None:
                     df = df.append({
                         'dep': dep_id_region,
@@ -202,12 +213,14 @@ def towns(mode='co2'):
                 else:
                     min_co2 = min.iloc[0]['co2']
                 min = min.iloc[0]['arr']
-                print('Date: ', date)
 
                 min_station = db.build_select_query(
                             'insee, lat, lon', 'station', 'id_region', f"'{min}'")
                 df_prefs = df_prefs[df_prefs.cheflieu != min_station[0]]
 
+                ax.plot(min_station[2], min_station[1], 'o')
+                plt.plot(df_journeys.lon, df_journeys.lat)
+                plt.savefig(config.IMG_PATH+'journeys_co2.png')
                 df_journeys = df_journeys.append({
                                 'dep_station_id': dep_id_region,
                                 'arr_station_id': min,
@@ -225,12 +238,14 @@ def towns(mode='co2'):
                 else:
                     min_duration = min.iloc[0]['duration']
                 min = min.iloc[0]['arr']
-                print('Date: ', date)
 
                 min_station = db.build_select_query(
                             'insee, lat, lon', 'station', 'id_region', f"'{min}'")
                 df_prefs = df_prefs[df_prefs.cheflieu != min_station[0]]
 
+                ax.plot(min_station[2], min_station[1], 'o')
+                plt.plot(df_journeys.lon, df_journeys.lat)
+                plt.savefig(config.IMG_PATH+'journeys_duration.png')
                 df_journeys = df_journeys.append({
                                 'dep_station_id': dep_id_region,
                                 'arr_station_id': min,
@@ -245,32 +260,9 @@ def towns(mode='co2'):
             # le lendemain à minuit
             date = datetime.combine(datetime.now() + timedelta(1), datetime.min.time())
             date = datetime_to_string(date)
-            """df_prefs = df_prefs[df_prefs.cheflieu != db.build_select_query(
-                        'insee', 'station', 'id_region', f"'{dep_id_region}'")]
-            df_no_journeys = df_no_journeys.append({
-                        'station_id': dep_id_region,
-                    }, ignore_index=True)
 
-            last_journey = df_journeys.tail(1)
-            dep_id_region = last_journey.iloc[0]['dep_station_id']
-            # drop last journey
-            df_journeys.drop(last_journey.index, inplace=True)"""
-
-        # TODO: N+1, rapide, SaaS
         print(f'df_journeys: {df_journeys}')
-        print(f'df_no_journeys: {df_no_journeys}')
-
-    # Plot
-    lng_var = df_journeys['lon'].tolist()
-    lat_var = df_journeys['lat'].tolist()
-    plt.scatter(x=lng_var, y=lat_var, marker='o')
-    plt.plot(lng_var, lat_var)
-    plt.show()
-
-    if mode == 'co2':
-        plt.savefig(config.IMG_PATH+'journeys_co2.png')
-    else:
-        plt.savefig(config.IMG_PATH+'journeys_duration.png')
+        #print(f'df_no_journeys: {df_no_journeys}')
 
     # Df to SQL
     engine = create_engine(config.SQLALCHEMY_DATABASE_URI, echo=False)
@@ -290,22 +282,20 @@ def find_journey_info(dep, arr, datetime):
         JSON object: journey info or None
 
     """
-    if datetime == 0:
-        res = requests.get(f'https://api.sncf.com/v1/coverage/sncf/journeys?from={dep}&to={arr}', auth=(config.TOKEN_AUTH, '')).json()
-    else:
-        res = requests.get(f'https://api.sncf.com/v1/coverage/sncf/journeys?from={dep}&to={arr}&datetime={datetime}', auth=(config.TOKEN_AUTH, '')).json()
+    i = 0
+    res = requests.get(f'https://api.sncf.com/v1/coverage/sncf/journeys?from={dep}&to={arr}&datetime={datetime}', auth=(config.TOKENS_AUTH[i], '')).json()
 
     if 'journeys' not in res:
-        if 'error' in res and "no solution" in res["error"]['message']:
-            print(f'No solution for {dep} --> {arr}.')
-            return None
+        if 'error' in res:
+            # and 'no solution' in res['error']['message']:
+            # print(f'No solution for {dep} --> {arr} at {datetime}.')
+            if 'Quota' in res['error']['message']:
+                print(res)
+                exit()
 
-    try:
+            return None
+    else:
         return res['journeys'][0]
-    except KeyError as err:
-        print('KeyError: ', err)
-        print('res: ', res)
-        print(f'{dep} --> {arr} at {datetime}')
 
 
 def string_to_datetime(string):
