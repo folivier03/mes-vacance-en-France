@@ -13,8 +13,8 @@ def main():
     """
     db = DBConnector()
     #data_integration.stations()
-    #data_integration.towns()
-    data_integration.towns('duration')
+    data_integration.towns()
+    #data_integration.towns('duration')
 
 
 if __name__ == "__main__":

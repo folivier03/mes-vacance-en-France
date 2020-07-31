@@ -108,7 +108,7 @@ def page_stations(numero_page):
     """
     return requests.get(
         (f'https://api.sncf.com/v1/coverage/sncf/stop_areas?start_page={numero_page}'),
-        auth=(config.TOKENS_AUTH, ''))
+        auth=(config.TOKEN_AUTH))
 
 
 def towns(mode='co2'):
@@ -282,18 +282,15 @@ def find_journey_info(dep, arr, datetime):
         JSON object: journey info or None
 
     """
-    i = 0
-    res = requests.get(f'https://api.sncf.com/v1/coverage/sncf/journeys?from={dep}&to={arr}&datetime={datetime}', auth=(config.TOKENS_AUTH[i], '')).json()
+    res = requests.get(f'https://api.sncf.com/v1/coverage/sncf/journeys?from={dep}&to={arr}&datetime={datetime}', auth=(config.TOKEN_AUTH, '')).json()
 
     if 'journeys' not in res:
-        if 'error' in res:
-            # and 'no solution' in res['error']['message']:
-            # print(f'No solution for {dep} --> {arr} at {datetime}.')
-            if 'Quota' in res['error']['message']:
-                print(res)
-                exit()
-
+        if 'error' in res and 'no solution' in res['error']['message']:
             return None
+            # print(f'No solution for {dep} --> {arr} at {datetime}.')
+        if 'message' in res and 'Quota' in res['message']:
+            print(res)
+            exit()
     else:
         return res['journeys'][0]
 
